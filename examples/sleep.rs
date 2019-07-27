@@ -8,7 +8,7 @@ extern crate panic_semihosting;
 use stm32f1xx_hal::{
     prelude::*,
     pac,
-    sleep::{enter_sleep_mode, SleepMode, SleepModeEntry},
+    sleep::{SleepModeBuilder, SleepMode, SleepModeEntry},
     rtc::Rtc,
 };
 use cortex_m_rt::entry;
@@ -44,22 +44,17 @@ fn main() -> ! {
         // Do something useful here...
 
         // Now go to sleep...
-        rtc.clear_alarm_flag();
-        rtc.set_seconds(0);
-        rtc.set_alarm(10);
         hprintln!("Going to sleep for 10 seconds (or until you pull PA0 high).").unwrap();
 
-        enter_sleep_mode(
-            SleepMode::Standby,
-            SleepModeEntry::WFI,
-            true,              // enable wakeup alarm
-            true,              // enable wakeup pin
-            Some(&mut dbgmcu), // enable sleep debug
-            &mut scb,
-            &mut pwr,
-            &mut nvic,
-            &mut exti,
-            &mut rcc.apb1);
+        SleepModeBuilder::new(
+                SleepMode::Standby,
+                SleepModeEntry::WFI,
+                &mut scb,
+                &mut pwr)
+            .enable_wakeup_alarm(10, &mut rtc, &mut nvic, &mut exti)
+            .enable_wakeup_pin(&mut nvic, &mut exti, &mut rcc.apb1)
+            .enable_debug(&mut dbgmcu)
+            .enter();
 
         // Waking up from Standby will reset the MCU (control returns to main),
         // while waking up from Sleep or Stop mode will continue executing any
@@ -67,4 +62,3 @@ fn main() -> ! {
         hprintln!("Woke up from Sleep or Stop mode.").unwrap();
     }
 }
-
